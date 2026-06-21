@@ -1,0 +1,37 @@
+# ── PyInstaller 打包 ──
+build/
+dist/
+*.spec
+build*.txt
+build_pkg.py
+OpenClass_Setup.exe
+
+# ── Python 缓存 ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ── IDE / 编辑器 ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── 数据库 & 密钥（含加密密钥文件） ──
+data/*.db
+data/*.db-*
+data/.keyfile
+app/data/
+
+# ── 日志 ──
+logs/
+*.log
+
+# ── 系统垃圾 ──
+.DS_Store
+Thumbs.db
+
+# ── 虚拟环境 ──
+venv/
+.venv/
+env/

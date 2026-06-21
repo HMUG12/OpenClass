@@ -1,0 +1,12 @@
+"""
+全局配置常量
+"""
+APP_NAME = "OpenClass"
+APP_VERSION = "测试版"
+APP_AUTHOR = "未知之致 ,deepseek V4 pro"
+APP_LICENSE = "MIT License"
+
+WINDOW_WIDTH = 1400
+WINDOW_HEIGHT = 900
+NAV_COLLAPSED_WIDTH = 60
+NAV_EXPANDED_WIDTH = 200
