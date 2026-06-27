@@ -22,6 +22,7 @@ data/*.db
 data/*.db-*
 data/.keyfile
 app/data/
+plugins/*/schedule_data.json
 
 # ── 日志 ──
 logs/

@@ -1126,12 +1126,14 @@ class SettingsPage(QWidget):
         self.class_view = ClassManagerView()
         self.log_view = LogManagePage()
         self.about_view = AboutView()
+        self.plugin_mgmt_view = self._create_plugin_mgmt()
 
         self._stack.addWidget(self.api_view)      # 0
         self._stack.addWidget(self.theme_view)     # 1
         self._stack.addWidget(self.class_view)     # 2
         self._stack.addWidget(self.log_view)       # 3
         self._stack.addWidget(self.about_view)     # 4
+        self._stack.addWidget(self.plugin_mgmt_view)  # 5
 
         # Tab 栏
         tab_widget = QWidget()
@@ -1140,7 +1142,7 @@ class SettingsPage(QWidget):
         tab_layout.setSpacing(8)
 
         self._tabs: list[QPushButton] = []
-        for i, text in enumerate(["🔑 API 密钥", "🎨 主题", "� 名单", "�� 日志", "ℹ 关于"]):
+        for i, text in enumerate(["🔑 API 密钥", "🎨 主题", "� 名单", "📄 日志", "ℹ 关于", "🔌 插件"]):
             btn = QPushButton(text)
             btn.setCheckable(True)
             btn.setStyleSheet("""
@@ -1180,6 +1182,131 @@ class SettingsPage(QWidget):
     def _ensure_loaded(self) -> None:
         """由 MainWindow 在首次切换到设置页时调用。"""
         self.class_view._ensure_loaded()
+
+    def _create_plugin_mgmt(self) -> QWidget:
+        """创建一个内嵌插件管理视图 — 表格列表 + 卸载按钮"""
+        from PySide6.QtWidgets import (
+            QScrollArea, QLabel, QTableWidget, QTableWidgetItem,
+            QHeaderView, QAbstractItemView,
+        )
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QFont
+        from app.utils.plugin_manager import PluggableManager
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(36, 20, 36, 20)
+        layout.setSpacing(16)
+
+        title = QLabel("🔌 已安装插件")
+        title.setStyleSheet("font-size: 22px; font-weight: bold;")
+        layout.addWidget(title)
+
+        desc = QLabel("管理所有已安装的插件。可查看信息或卸载插件。")
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #64748b; font-size: 15px;")
+        layout.addWidget(desc)
+
+        # ── 表格 ──
+        table = QTableWidget()
+        table.setColumnCount(6)
+        table.setHorizontalHeaderLabels(["图标", "名称", "版本", "作者", "状态", "操作"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.verticalHeader().setVisible(False)
+        table.setMinimumHeight(300)
+        table.setStyleSheet("""
+            QTableWidget { font-size: 14px; border: 1px solid #e2e8f0;
+                border-radius: 10px; gridline-color: #f1f5f9; }
+            QHeaderView::section { font-size: 14px; font-weight: bold;
+                padding: 10px 6px; border: 1px solid #e2e8f0; background: transparent; }
+            QTableWidget::item { padding: 8px; }
+        """)
+
+        pm = PluggableManager()
+        pm.scan()
+        plugins = pm.plugin_list
+        table.setRowCount(len(plugins))
+
+        for row, plugin in enumerate(plugins):
+            table.setItem(row, 0, QTableWidgetItem(plugin.icon))
+            table.setItem(row, 1, QTableWidgetItem(plugin.name))
+            table.setItem(row, 2, QTableWidgetItem(f"v{plugin.version}"))
+            table.setItem(row, 3, QTableWidgetItem(plugin.author))
+            status = "✓ 已启用" if plugin.enabled else "✗ 已禁用"
+            status_item = QTableWidgetItem(status)
+            status_item.setForeground(
+                Qt.GlobalColor.darkGreen if plugin.enabled else Qt.GlobalColor.red
+            )
+            table.setItem(row, 4, status_item)
+
+            # 卸载按钮
+            uninstall_btn = QPushButton("卸载")
+            uninstall_btn.setMinimumHeight(36)
+            uninstall_btn.setStyleSheet("""
+                QPushButton { font-size: 13px; color: #ef4444; font-weight: bold;
+                    background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.20);
+                    border-radius: 6px; padding: 4px 12px; }
+                QPushButton:hover { background: rgba(239,68,68,0.15); }
+            """)
+            uninstall_btn.clicked.connect(lambda checked, pid=plugin.id: self._uninstall_plugin(pid))
+            table.setCellWidget(row, 5, uninstall_btn)
+
+        layout.addWidget(table, stretch=1)
+
+        # 刷新按钮
+        refresh_btn = QPushButton("🔄 刷新列表")
+        refresh_btn.setMinimumHeight(44)
+        refresh_btn.setStyleSheet("""
+            QPushButton { font-size: 14px; background: rgba(128,128,128,0.06); color: #6366f1;
+                border: 1px solid rgba(128,128,128,0.12); border-radius: 8px; }
+            QPushButton:hover { background: rgba(99,102,241,0.10); }
+        """)
+
+        def _refresh():
+            # 重建整个视图（简单粗暴但有效）
+            self._stack.removeWidget(page)
+            new_page = self._create_plugin_mgmt()
+            self._stack.insertWidget(5, new_page)
+            self.plugin_mgmt_view = new_page
+            self._stack.setCurrentIndex(5)
+
+        refresh_btn.clicked.connect(_refresh)
+        layout.addWidget(refresh_btn)
+
+        return page
+
+    def _uninstall_plugin(self, plugin_id: str) -> None:
+        """弹出二次确认后卸载插件"""
+        from PySide6.QtWidgets import QMessageBox
+        from app.utils.plugin_manager import PluggableManager
+
+        pm = PluggableManager()
+        meta = pm.get(plugin_id)
+        if meta is None:
+            return
+
+        reply = QMessageBox.question(
+            self, "确认卸载",
+            f"确定要卸载插件 '{meta.name}' (v{meta.version}) 吗？\n\n此操作将删除插件文件夹，不可恢复。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        success, msg = pm.uninstall(plugin_id)
+        if success:
+            QMessageBox.information(self, "卸载成功", msg)
+            # 切换到刷新后的页面
+            self._stack.removeWidget(self.plugin_mgmt_view)
+            new_page = self._create_plugin_mgmt()
+            self._stack.insertWidget(5, new_page)
+            self.plugin_mgmt_view = new_page
+            self._stack.setCurrentIndex(5)
+        else:
+            QMessageBox.critical(self, "卸载失败", msg)
 
     def _apply_theme(self, text: str) -> None:
         try:

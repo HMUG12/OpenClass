@@ -27,6 +27,11 @@ DisableProgramGroupPage=no
 Source: "dist\OpenClass.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; 将图标也复制到安装目录，供快捷方式使用
 Source: "openclass.ico"; DestDir: "{app}"; Flags: ignoreversion
+; 创建 plugins/ 和 logs/ 空目录（打包后运行时需要可写目录）
+[Dirs]
+Name: "{app}\plugins"
+Name: "{app}\logs"
+Name: "{app}\data"
 
 ; ── 桌面 + 开始菜单快捷方式 ──
 [Icons]

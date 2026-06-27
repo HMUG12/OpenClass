@@ -404,6 +404,7 @@ class FullscreenTimerPage(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("timerPage")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # ── 内部状态 ──
         self._state: TimerState = TimerState.IDLE

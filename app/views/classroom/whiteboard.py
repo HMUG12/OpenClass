@@ -15,7 +15,7 @@ from datetime import datetime
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QDialog, QApplication,
+    QFrame, QDialog, QApplication, QSizePolicy,
 )
 from PySide6.QtCore import Qt, QPointF, QTimer, Signal, QEvent, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import (
@@ -666,6 +666,7 @@ class WhiteboardPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("whiteboardPage")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._canvas = _WhiteboardCanvas()
         self._canvas.request_close.connect(self._on_canvas_close)
         self._build_ui()

@@ -1,8 +1,15 @@
 """
 OpenClass 主窗口 — 优先使用 qfluentwidgets，降级为纯 PySide6
 """
-import sys
-from PySide6.QtWidgets import QStackedWidget, QWidget
+import os as _os
+import sys as _sys
+
+# ── 确保项目根目录在 sys.path 中 ──
+_PROJECT_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+if _PROJECT_ROOT not in _sys.path:
+    _sys.path.insert(0, _PROJECT_ROOT)
+
+from PySide6.QtWidgets import QStackedWidget, QWidget, QSizePolicy
 from PySide6.QtCore import Signal as Sig
 
 # 尝试导入 qfluentwidgets
@@ -25,6 +32,7 @@ from app.views.agent.agent_page import AgentPage
 from app.views.av_tools.launcher_view import AVToolsLauncherView
 from app.views.av_tools.kms_activation_view import KMSActivationView
 from app.views.av_tools.system_info_view import SystemInfoView
+from app.views.plugin_center.plugin_center import PluginCenterView
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -157,6 +165,13 @@ if _HAS_FLUENT:
 
             self.av_container.setCurrentIndex(_AV_LAUNCHER)
 
+            # ── 插件容器 ──
+            self.plugins_container = QStackedWidget()
+            self.plugins_container.setObjectName("pluginsContainer")
+            self.plugins_launcher = PluginCenterView()
+            self.plugins_container.addWidget(self.plugins_launcher)  # 0
+            self.plugins_container.setCurrentIndex(0)
+
             self.settings_page = SettingsPage()
 
             self._init_navigation()
@@ -176,6 +191,10 @@ if _HAS_FLUENT:
                 NavigationItemPosition.SCROLL
             )
             self.addSubInterface(
+                self.plugins_container, FluentIcon.DEVELOPER_TOOLS, "插件",
+                NavigationItemPosition.SCROLL
+            )
+            self.addSubInterface(
                 self.settings_page, FluentIcon.SETTING, "设置",
                 NavigationItemPosition.BOTTOM
             )
@@ -191,15 +210,67 @@ if _HAS_FLUENT:
             self.av_coming_net.back_requested.connect(self._return_to_av_launcher)
             self.av_coming_rec.back_requested.connect(self._return_to_av_launcher)
 
+            # ── 插件信号 ──
+            self.plugins_launcher.back_requested.connect(self._return_to_plugins_launcher)
+
         # ── 实用课堂 ──
 
         def _on_tool_selected(self, tool_id: str) -> None:
+            if tool_id == "schedule":
+                self._open_schedule_float()
+                return
             tool_map = {"random_picker": 1, "timer": 2, "whiteboard": 3}
+            # 插件类工具 → 动态加载
+            plugin_tools = {"video_player", "audio_player", "extractor", "audio_converter"}
+            if tool_id in plugin_tools:
+                self._load_plugin_to_classroom(tool_id)
+                return
+            self.classroom_container.setUpdatesEnabled(False)
             idx = tool_map.get(tool_id)
             if idx is not None:
+                # 先清理已加载的插件页面（避免与新页面重叠）
+                self._cleanup_classroom_plugin_widgets()
                 self.classroom_container.setCurrentIndex(idx)
                 if tool_id == "random_picker":
                     self.random_picker._ensure_loaded()
+            self.classroom_container.setUpdatesEnabled(True)
+
+        def _load_plugin_to_classroom(self, plugin_id: str) -> None:
+            from app.utils.plugin_manager import PluggableManager
+            widget, err = PluggableManager().load_plugin_widget(plugin_id)
+            if err:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.critical(self, "加载失败", err)
+                return
+            widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            if hasattr(widget, 'back_requested'):
+                widget.back_requested.connect(self._return_to_classroom_launcher)
+            self.classroom_container.setUpdatesEnabled(False)
+            self._cleanup_classroom_plugin_widgets()
+            idx = self.classroom_container.addWidget(widget)
+            self.classroom_container.setCurrentIndex(idx)
+            self.classroom_container.setUpdatesEnabled(True)
+
+        def _cleanup_classroom_plugin_widgets(self) -> None:
+            """彻底移除所有动态加载的插件页面（索引 >= 4），断开父子关系防止重叠。"""
+            while self.classroom_container.count() > 4:
+                w = self.classroom_container.widget(4)
+                self.classroom_container.removeWidget(w)
+                w.setParent(None)      # 彻底断开父子关系，防止绘制残留
+                w.deleteLater()
+
+        def _return_to_classroom_launcher(self) -> None:
+            self.classroom_container.setUpdatesEnabled(False)
+            self._cleanup_classroom_plugin_widgets()
+            self.classroom_container.setCurrentIndex(0)
+            self.classroom_container.setUpdatesEnabled(True)
+
+        def _open_schedule_float(self) -> None:
+            from app.views.classroom.schedule_float import ScheduleFloatWindow
+            w = ScheduleFloatWindow.get_or_create()
+            w.show()
+            w.raise_()
+            w.activateWindow()
 
         # ── 电教工具 ──
 
@@ -210,6 +281,16 @@ if _HAS_FLUENT:
 
         def _return_to_av_launcher(self) -> None:
             self.av_container.setCurrentIndex(_AV_LAUNCHER)
+
+        # ── 插件 ──
+
+        def _on_plugin_selected(self, plugin_id: str) -> None:
+            """插件由 PluginCenterView 自行管理加载/返回，此处仅路由到容器。"""
+            pass
+
+        def _return_to_plugins_launcher(self) -> None:
+            """返回插件启动台"""
+            self.plugins_container.setCurrentIndex(0)
 
         # ── Tab 切换 ──
 
@@ -223,6 +304,8 @@ if _HAS_FLUENT:
                 self.agent_page._ensure_loaded()
             elif widget is self.settings_page:
                 self.settings_page._ensure_loaded()
+            elif widget is self.plugins_container:
+                self._return_to_plugins_launcher()
 
 else:
     # ── 降级：纯 PySide6 实现 ───────────────────
@@ -276,7 +359,8 @@ else:
             self._nav_btns: list[QPushButton] = []
             nav_items = [
                 ("🤖\nAgent", 0), ("🧑‍🏫\n课堂", 1),
-                ("🖥️\n电教", 2), ("⚙️\n设置", 3),
+                ("🖥️\n电教", 2), ("🔌\n插件", 4),
+                ("⚙️\n设置", 3),
             ]
             for text, idx in nav_items:
                 btn = QPushButton(text)
@@ -328,6 +412,12 @@ else:
             self.settings_page = SettingsPage()
             self.content_stack.addWidget(self.settings_page)    # 3
 
+            # 插件容器
+            self.plugins_container = QStackedWidget()
+            self.plugins_launcher = PluginCenterView()
+            self.plugins_container.addWidget(self.plugins_launcher)  # 0
+            self.content_stack.addWidget(self.plugins_container)   # 4
+
             root.addWidget(self.content_stack, stretch=1)
 
             self._nav_btns[1].setChecked(True)
@@ -342,6 +432,8 @@ else:
             self.av_coming_net.back_requested.connect(self._return_to_av_launcher)
             self.av_coming_rec.back_requested.connect(self._return_to_av_launcher)
 
+            self.plugins_launcher.back_requested.connect(self._return_to_plugins_launcher)
+
         # ── 导航 ──
 
         def _on_nav(self, idx: int) -> None:
@@ -350,10 +442,58 @@ else:
             self.content_stack.setCurrentIndex(idx)
 
         def _on_tool_selected(self, tool_id: str) -> None:
+            if tool_id == "schedule":
+                self._open_schedule_float()
+                return
             tool_map = {"random_picker": 1, "timer": 2, "whiteboard": 3}
+            # 插件类工具 → 动态加载
+            plugin_tools = {"video_player", "audio_player", "extractor", "audio_converter"}
+            if tool_id in plugin_tools:
+                self._load_plugin_to_classroom(tool_id)
+                return
+            self.classroom_container.setUpdatesEnabled(False)
             idx = tool_map.get(tool_id)
             if idx is not None:
+                self._cleanup_classroom_plugin_widgets()
                 self.classroom_container.setCurrentIndex(idx)
+            self.classroom_container.setUpdatesEnabled(True)
+
+        def _load_plugin_to_classroom(self, plugin_id: str) -> None:
+            from app.utils.plugin_manager import PluggableManager
+            widget, err = PluggableManager().load_plugin_widget(plugin_id)
+            if err:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.critical(self, "加载失败", err)
+                return
+            widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            if hasattr(widget, 'back_requested'):
+                widget.back_requested.connect(self._return_to_classroom_launcher)
+            self.classroom_container.setUpdatesEnabled(False)
+            self._cleanup_classroom_plugin_widgets()
+            idx = self.classroom_container.addWidget(widget)
+            self.classroom_container.setCurrentIndex(idx)
+            self.classroom_container.setUpdatesEnabled(True)
+
+        def _cleanup_classroom_plugin_widgets(self) -> None:
+            """彻底移除所有动态加载的插件页面（索引 >= 4），断开父子关系防止重叠。"""
+            while self.classroom_container.count() > 4:
+                w = self.classroom_container.widget(4)
+                self.classroom_container.removeWidget(w)
+                w.setParent(None)
+                w.deleteLater()
+
+        def _return_to_classroom_launcher(self) -> None:
+            self.classroom_container.setUpdatesEnabled(False)
+            self._cleanup_classroom_plugin_widgets()
+            self.classroom_container.setCurrentIndex(0)
+            self.classroom_container.setUpdatesEnabled(True)
+
+        def _open_schedule_float(self) -> None:
+            from app.views.classroom.schedule_float import ScheduleFloatWindow
+            w = ScheduleFloatWindow.get_or_create()
+            w.show()
+            w.raise_()
+            w.activateWindow()
 
         def _on_av_tool_selected(self, tool_id: str) -> None:
             idx = _AV_TOOL_INDEX.get(tool_id)
@@ -362,6 +502,13 @@ else:
 
         def _return_to_av_launcher(self) -> None:
             self.av_container.setCurrentIndex(_AV_LAUNCHER)
+
+        def _on_plugin_selected(self, plugin_id: str) -> None:
+            """插件由 PluginCenterView 自行管理加载/返回。"""
+            pass
+
+        def _return_to_plugins_launcher(self) -> None:
+            self.plugins_container.setCurrentIndex(0)
 
         def _on_main_tab_changed(self, index: int) -> None:
             if index == 1:
@@ -372,3 +519,5 @@ else:
                 self.agent_page._ensure_loaded()
             elif index == 3:
                 self.settings_page._ensure_loaded()
+            elif index == 4:
+                self._return_to_plugins_launcher()

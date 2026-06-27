@@ -1,0 +1,10 @@
+{
+    "id": "audio_converter",
+    "name": "音频格式转换器",
+    "version": "1.0.0",
+    "author": "OpenClass Team",
+    "description": "批量音频格式转换，基于FFmpeg",
+    "icon": "🔄",
+    "main": "main.py",
+    "class": "PluginWidget"
+}

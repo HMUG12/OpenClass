@@ -1,0 +1,10 @@
+{
+    "id": "function_plotter",
+    "name": "函数几何画板",
+    "version": "1.0.0",
+    "author": "OpenClass Team",
+    "description": "交互式函数绘图工具，支持拖拽平移与双指缩放",
+    "icon": "📈",
+    "main": "main.py",
+    "class": "PluginWidget"
+}

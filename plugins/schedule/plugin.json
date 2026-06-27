@@ -1,0 +1,10 @@
+{
+    "id": "schedule",
+    "name": "电子课程表",
+    "version": "1.0.0",
+    "author": "OpenClass Team",
+    "description": "可编辑的周课程表，自动高亮当前课程",
+    "icon": "📅",
+    "main": "main.py",
+    "class": "PluginWidget"
+}

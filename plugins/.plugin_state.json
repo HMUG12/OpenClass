@@ -1,0 +1,11 @@
+{
+  "audio_player": {
+    "enabled": false
+  },
+  "audio_converter": {
+    "enabled": true
+  },
+  "extractor": {
+    "enabled": true
+  }
+}

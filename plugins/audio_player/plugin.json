@@ -1,0 +1,10 @@
+{
+    "id": "audio_player",
+    "name": "音频播放器",
+    "version": "1.0.0",
+    "author": "OpenClass Team",
+    "description": "本地音乐播放器，支持播放列表管理",
+    "icon": "🎵",
+    "main": "main.py",
+    "class": "PluginWidget"
+}

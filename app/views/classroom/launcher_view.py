@@ -72,11 +72,19 @@ class ClassroomLauncherView(QWidget):
         ("🎰", "随机点名", "老虎机动效滚动抽取\n支持排除已点 + 空格键触发", "random_picker"),
         ("⏱️", "全屏计时器", "正计时 / 倒计时\n全屏超大数字 + 铃声提醒", "timer"),
         ("✏️", "批注白板", "半透明全屏画布\n触摸 / 数位笔 / 鼠标涂鸦", "whiteboard"),
+        ("📅", "课程表悬浮窗", "桌面悬浮课程表\n磨砂背景 / 置顶 / 可拖拽", "schedule"),
+        # ── 媒体工具 ──
+        ("🎬", "视频播放", "VLC内核视频播放器\n播放/暂停/全屏/列表", "video_player"),
+        ("🎵", "音频播放", "本地音乐播放器\n播放列表 + 进度控制", "audio_player"),
+        # ── 文件工具 ──
+        ("📦", "解压工具", "多格式解压\n7z/ZIP/RAR + 密码", "extractor"),
+        ("🔄", "音频转换", "音频格式批量转换\nMP3/WAV/FLAC/OGG", "audio_converter"),
     ]
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("classroomLauncher")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(48, 40, 48, 40)
@@ -90,14 +98,19 @@ class ClassroomLauncherView(QWidget):
         subtitle.setStyleSheet("color: #94a3b8; font-size: 16px; border: none;")
         layout.addWidget(subtitle)
 
-        grid = QGridLayout()
-        grid.setSpacing(24)
+        self._card_grid = QGridLayout()
+        self._card_grid.setSpacing(24)
 
         for idx, (icon_text, title, desc, tool_id) in enumerate(self.TOOLS):
             card = ToolCard(icon_text, title, desc, tool_id)
             card.clicked.connect(self.card_clicked.emit)
             row, col = divmod(idx, 3)
-            grid.addWidget(card, row, col)
+            self._card_grid.addWidget(card, row, col)
 
-        layout.addLayout(grid)
+        layout.addLayout(self._card_grid)
         layout.addStretch(1)
+
+    def resizeEvent(self, event) -> None:
+        """确保子组件在窗口大小变化时正确重绘"""
+        super().resizeEvent(event)
+        self.updateGeometry()

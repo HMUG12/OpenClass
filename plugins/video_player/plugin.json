@@ -1,0 +1,10 @@
+{
+    "id": "video_player",
+    "name": "视频播放器",
+    "version": "1.0.0",
+    "author": "OpenClass Team",
+    "description": "VLC内核视频播放器，支持全屏与播放列表",
+    "icon": "🎬",
+    "main": "main.py",
+    "class": "PluginWidget"
+}

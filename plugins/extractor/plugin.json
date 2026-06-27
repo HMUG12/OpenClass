@@ -1,0 +1,10 @@
+{
+    "id": "extractor",
+    "name": "解压工具",
+    "version": "1.0.0",
+    "author": "OpenClass Team",
+    "description": "多格式解压工具，支持7z/ZIP/RAR及密码保护",
+    "icon": "📦",
+    "main": "main.py",
+    "class": "PluginWidget"
+}
